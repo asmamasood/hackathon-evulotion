@@ -1,0 +1,67 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Run weekly on Mondays at 2 AM
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --file=package.json
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run Bandit security scan on Python code
+      uses: securecodewarrior/github-action-bandit@v2.0.1
+      with:
+        path: './backend'
+        severity: 'high'
+        confidence: 'medium'
+
+    - name: Run Docker security scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'todo-backend:latest'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        security-checks: 'vuln,config,secret'
+        output: 'docker-scan-results.txt'
+
+    - name: Run Docker security scan for frontend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'todo-frontend:latest'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        security-checks: 'vuln,config,secret'
+        output: 'docker-frontend-scan-results.txt'

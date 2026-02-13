@@ -1,0 +1,54 @@
+# GitHub Spec-Kit Plus Configuration
+# Todo Application - 5 Phase Implementation
+
+project:
+  name: hackathon-todo
+  description: A comprehensive Todo application built across 5 phases with CLI, Web, AI, Kubernetes, and Cloud deployments
+
+phases:
+  - id: phase1
+    name: Console Todo App
+    description: In-memory Python CLI Todo application
+    status: in_progress
+
+  - id: phase2
+    name: Full-Stack Web App
+    description: Multi-user web app with persistent storage
+    status: pending
+
+  - id: phase3
+    name: AI Todo Chatbot
+    description: Natural language todo control via MCP + Agents
+    status: pending
+
+  - id: phase4
+    name: Local Kubernetes Deployment
+    description: Minikube deployment using cloud-native tooling
+    status: pending
+
+  - id: phase5
+    name: Advanced Cloud Deployment
+    description: Advanced features with Kafka, Dapr, and cloud deployment
+    status: pending
+
+stack:
+  python: "3.13+"
+  package_manager: uv
+  frontend:
+    framework: Next.js
+    version: "16+"
+    features:
+      - App Router
+      - TypeScript
+      - Tailwind CSS
+  backend:
+    framework: FastAPI
+    orm: SQLModel
+    database: Neon Serverless PostgreSQL
+  auth:
+    provider: Better Auth
+    type: JWT
+  ai:
+    agents: OpenAI Agents SDK
+    mcp: Official MCP SDK
+    chat_ui: OpenAI ChatKit

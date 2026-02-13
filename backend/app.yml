@@ -1,0 +1,23 @@
+spec:
+  python: "3.13"
+  requirements: "requirements.txt"
+  accelerator: "cpu"
+  resources:
+    cpu: 2x
+    memory: 8Gi
+    space: 0.5Gi
+  secrets:
+    - name: "better_auth_secret"
+      description: "JWT secret for authentication"
+      required: true
+    - name: "openai_api_key"
+      description: "OpenAI API key for AI features"
+      required: false
+  env:
+    - name: "DATABASE_URL"
+      value: "sqlite:///./todo_app.db"
+    - name: "DEBUG"
+      value: "True"
+  api_behavior: "streaming"
+  runtime: "docker"
+  dockerfile: "Dockerfile.spaces"

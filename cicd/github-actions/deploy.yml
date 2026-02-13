@@ -1,0 +1,104 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log into registry ${{ env.REGISTRY }}
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract Docker metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+    - name: Build and push Docker images
+      id: build-and-push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Setup Kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'latest'
+
+    - name: Set up cloud credentials
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+
+    - name: Deploy to Kubernetes
+      run: |
+        # Replace image tags in Helm values
+        sed -i "s|todo-frontend:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}|g" k8s/helm/values.yaml
+        sed -i "s|todo-backend:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}|g" k8s/helm/values.yaml
+
+        # Deploy using Helm
+        helm upgrade --install todo-app k8s/helm/ \
+          --namespace todo-app \
+          --create-namespace \
+          --set global.betterAuthSecret="${{ secrets.BETTER_AUTH_SECRET }}" \
+          --set global.openaiApiKey="${{ secrets.OPENAI_API_KEY }}" \
+          --set postgresql.auth.postgresPassword="${{ secrets.POSTGRES_PASSWORD }}" \
+          --wait \
+          --timeout=10m
+
+    - name: Run tests
+      run: |
+        # Wait for pods to be ready
+        kubectl wait --for=condition=ready pod -l app=todo-app-frontend -n todo-app --timeout=300s
+        kubectl wait --for=condition=ready pod -l app=todo-app-backend -n todo-app --timeout=300s
+        
+        # Run basic health checks
+        FRONTEND_POD=$(kubectl get pods -l app=todo-app-frontend -n todo-app -o jsonpath='{.items[0].metadata.name}')
+        BACKEND_POD =$(kubectl get pods -l app=todo-app-backend -n todo-app -o jsonpath='{.items[0].metadata.name}')
+        
+        kubectl logs $FRONTEND_POD -n todo-app
+        kubectl logs $BACKEND_POD -n todo-app
+
+    - name: Notify on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}

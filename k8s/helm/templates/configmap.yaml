@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "todo-app.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+data:
+  DATABASE_URL: "postgresql://postgres:{{ .Values.postgresql.auth.postgresPassword }}@{{ include "todo-app.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+  BETTER_AUTH_SECRET: {{ .Values.global.betterAuthSecret | default "your-super-secret-jwt-token-with-at-least-32-characters-long" }}
+  ACCESS_TOKEN_EXPIRE_MINUTES: {{ .Values.global.accessTokenExpireMinutes | default "30" | quote }}
+  DEBUG: {{ .Values.global.debug | default "True" | quote }}
+  APP_NAME: {{ .Values.global.appName | default "Todo Application" | quote }}
