@@ -14,7 +14,7 @@ from database.session import engine
 from models.todo import Todo
 from models.user import User
 from sqlmodel import SQLModel
-from dapr.clients import DaprClient
+# from dapr.clients import DaprClient
 
 
 # Global Dapr client instance
@@ -28,9 +28,14 @@ async def lifespan(app: FastAPI):
     """
     global dapr_client
     
-    # Initialize Dapr client
-    print("Initializing Dapr client...")
-    dapr_client = DaprClient()
+    # Initialize Dapr client (Optional)
+    try:
+        from dapr.clients import DaprClient
+        print("Initializing Dapr client...")
+        dapr_client = DaprClient()
+    except (ImportError, Exception) as e:
+        print(f"Dapr client not initialized: {e}")
+        dapr_client = None
     
     # Create tables on startup
     print("Creating database tables...")
@@ -48,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
-    description="Todo Application API - Phase IV with Dapr and Kafka",
+    description="Todo Application API - Phase III",
     lifespan=lifespan
 )
 
@@ -70,12 +75,17 @@ app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
 # Root endpoint
 @app.get("/")
 async def root():
-    return {"message": f"Welcome to {settings.app_name}", "version": "Phase IV"}
+    return {"message": f"Welcome to {settings.app_name}", "version": "Phase III"}
 
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "todo-backend", "dapr": "connected"}
+    health_status = {"status": "healthy", "service": "todo-backend"}
+    if dapr_client:
+        health_status["dapr"] = "connected"
+    else:
+        health_status["dapr"] = "not_available"
+    return health_status
 
 
 # Function to get Dapr client (for dependency injection)
